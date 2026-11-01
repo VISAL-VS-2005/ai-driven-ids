@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+venv/
+.venv/
+# Snort logs
+alert_fast.txt
+demo_alerts.log
+
+# Generated alert data
+data/alerts.json
+data/summary.json
+
+# Generated PDF reports
+data/reports/*.pdf

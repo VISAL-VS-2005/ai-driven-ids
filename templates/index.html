@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDS Attack Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#111a2e; --panel2:#0e1626; --border:#1e2b45;
+    --text:#e2e8f0; --muted:#8ba0bd; --accent:#38bdf8; --green:#34d399;
+    --red:#f87171; --orange:#fb923c; --yellow:#facc15; --purple:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%,#16233d 0%,var(--bg) 55%);
+    color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+  }
+  a{color:var(--accent)}
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 22px;border-bottom:1px solid var(--border);
+    background:rgba(13,20,36,.85);backdrop-filter:blur(6px);
+    position:sticky;top:0;z-index:30;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#0ea5e9,#6366f1);font-weight:800;font-size:15px;color:#fff;
+  }
+  h1{font-size:16px;margin:0;letter-spacing:.4px}
+  .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{
+    display:inline-flex;align-items:center;gap:7px;font-size:12px;
+    border:1px solid var(--border);background:var(--panel);padding:6px 11px;border-radius:999px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(248,113,113,.6)}
+  .dot.on{background:var(--green);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+  .btn{
+    border:1px solid var(--border);background:var(--panel);color:var(--text);
+    padding:7px 13px;border-radius:8px;font-size:12.5px;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:var(--accent);color:#fff}
+  .btn.primary{background:linear-gradient(135deg,#0284c7,#4f46e5);border-color:transparent;color:#fff;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.12)}
+  .btn.warn{background:#7c2d12;border-color:#9a3412;color:#fed7aa}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  main{padding:18px 22px 40px;max-width:1500px;margin:0 auto}
+
+  .cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:1150px){.cards{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--border);border-radius:12px;padding:13px 14px;position:relative;overflow:hidden;
+  }
+  .card .k{font-size:10.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted)}
+  .card .v{font-size:26px;font-weight:750;margin-top:6px;line-height:1}
+  .card .d{font-size:11px;color:var(--muted);margin-top:6px}
+  .card .accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+  .card.c-red .accent{background:var(--red)} .card.c-orange .accent{background:var(--orange)}
+  .card.c-green .accent{background:var(--green)} .card.c-purple .accent{background:var(--purple)}
+  .card.c-yellow .accent{background:var(--yellow)}
+
+  .grid{display:grid;gap:14px;margin-bottom:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1.2fr 1fr 1fr}
+  @media(max-width:1000px){.g2,.g3{grid-template-columns:1fr}}
+  .panel{
+    background:rgba(17,26,46,.75);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+  }
+  .panel h2{font-size:12.5px;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px;color:#bcd0ee;font-weight:650}
+  .chart-box{position:relative;height:250px}
+  .chart-box.tall{height:280px}
+
+  .controls{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:12px}
+  input[type=text],input[type=password],input[type=number],select{
+    background:#0d1526;border:1px solid var(--border);color:var(--text);
+    padding:8px 10px;border-radius:8px;font-size:12.5px;outline:none;
+  }
+  input:focus,select:focus{border-color:var(--accent)}
+  input[type=text]{min-width:230px}
+  .seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{border:0;background:transparent;color:var(--muted);padding:8px 15px;font-size:12.5px;cursor:pointer}
+  .seg button.active{background:linear-gradient(135deg,#0284c7,#4f46e5);color:#fff;font-weight:650}
+  .seg button.live.active{background:linear-gradient(135deg,#059669,#0d9488)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border);
+    position:sticky;top:0;background:#101a2f;z-index:2;
+  }
+  td{padding:8px 10px;border-bottom:1px solid rgba(30,43,69,.6);vertical-align:top}
+  tr:hover td{background:rgba(56,189,248,.05)}
+  .feed-wrap{max-height:470px;overflow:auto}
+  .sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+  .sev.critical{background:#7f1d1d;color:#fecaca;border:1px solid #b91c1c}
+  .sev.high{background:#7c2d12;color:#ffedd5;border:1px solid #c2410c}
+  .sev.medium{background:#713f12;color:#fef9c3;border:1px solid #a16207}
+  .sev.low{background:#1e3a5f;color:#dbeafe;border:1px solid #2563eb}
+  .sev.info{background:#164e63;color:#cffafe;border:1px solid #0891b2}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+  .arrow{color:var(--muted);padding:0 4px}
+  .tag{font-size:10.5px;color:#9fb6d8;background:#16233c;border:1px solid var(--border);padding:1.5px 7px;border-radius:6px;white-space:nowrap}
+  tr.fresh td{animation:flash 2.2s ease-out}
+  @keyframes flash{0%{background:rgba(52,211,153,.28)}100%{background:transparent}}
+  .muted{color:var(--muted)}
+  .empty{padding:26px;text-align:center;color:var(--muted);font-size:13px}
+  .row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:10px}
+
+  /* modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,8,18,.72);display:none;
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .overlay.show{display:flex}
+  .modal{
+    width:min(640px,100%);background:#0f1830;border:1px solid var(--border);
+    border-radius:14px;padding:20px 22px;max-height:90vh;overflow:auto;
+    box-shadow:0 24px 70px rgba(0,0,0,.55);
+  }
+  .modal h3{margin:0 0 4px;font-size:16px}
+  .modal p.hint{margin:0 0 14px;font-size:12px;color:var(--muted);line-height:1.5}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:6px}
+  .field input,.field select{width:100%}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .status{
+    font-size:12.5px;padding:10px 12px;border-radius:9px;margin-top:12px;display:none;
+    border:1px solid var(--border);background:#0c1425;line-height:1.5;
+  }
+  .status.show{display:block}
+  .status.err{border-color:#b91c1c;background:#2d0f0f;color:#fecaca}
+  .status.ok{border-color:#047857;background:#052e22;color:#a7f3d0}
+  .spin{
+    display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.35);
+    border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .reports{display:flex;flex-direction:column;gap:7px;max-height:170px;overflow:auto;margin-top:8px}
+  .report-item{
+    display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12px;
+    background:#0c1425;border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+  }
+  footer{color:var(--muted);font-size:11.5px;text-align:center;padding:10px 0 24px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">IDS</div>
+    <div>
+      <h1>Intrusion Detection &mdash; Attack Dashboard</h1>
+      <div class="sub">source: <span id="srcFile" class="mono">alert_fast.txt</span> &middot; Snort fast.log → JSON</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <select id="logSel" onchange="switchLog(this.value)" title="select which log file to parse"
+            style="max-width:260px"><option>loading logs…</option></select>
+    <span class="badge" id="tailErr" style="display:none;color:#fecaca;border-color:#b91c1c"
+          title=""></span>
+    <span class="badge"><span class="dot" id="sseDot"></span><span id="sseState">connecting…</span></span>
+    <span class="badge" id="modeBadge">mode: live tail</span>
+    <span class="badge" id="feedCount">0 events this session</span>
+    <button class="btn" onclick="downloadJSON('alerts.json')">⬇ alerts.json</button>
+    <button class="btn" onclick="downloadJSON('summary.json')">⬇ summary.json</button>
+    <button class="btn primary" onclick="openReport()">📄 Generate PDF Report</button>
+  </div>
+</header>
+
+<main>
+  <!-- stat cards -->
+  <section class="cards">
+    <div class="card c-red"><span class="accent"></span>
+      <div class="k">Total Alerts</div><div class="v" id="cTotal">–</div>
+      <div class="d" id="cTotalD">loading…</div></div>
+    <div class="card c-orange"><span class="accent"></span>
+      <div class="k">Attack Types</div><div class="v" id="cSigs">–</div>
+      <div class="d" id="cSigsD">signatures</div></div>
+    <div class="card c-purple"><span class="accent"></span>
+      <div class="k">Unique IPs</div><div class="v" id="cIps">–</div>
+      <div class="d" id="cIpsD">sources / targets</div></div>
+    <div class="card c-yellow"><span class="accent"></span>
+      <div class="k">Target Ports</div><div class="v" id="cPorts">–</div>
+      <div class="d" id="cPortsD">unique destination</div></div>
+    <div class="card"><span class="accent"></span>
+      <div class="k">Top Category</div><div class="v" id="cCat" style="font-size:17px;padding-top:5px">–</div>
+      <div class="d" id="cCatD">by volume</div></div>
+    <div class="card c-green"><span class="accent"></span>
+      <div class="k">Peak Day</div><div class="v" id="cPeak" style="font-size:17px;padding-top:5px">–</div>
+      <div class="d" id="cPeakD">busiest date</div></div>
+  </section>
+
+  <!-- charts -->
+  <section class="grid g3">
+    <div class="panel"><h2>Alerts per day</h2><div class="chart-box tall"><canvas id="chTimeline"></canvas></div></div>
+    <div class="panel"><h2>Attack categories</h2><div class="chart-box tall"><canvas id="chCat"></canvas></div></div>
+    <div class="panel"><h2>Severity distribution</h2><div class="chart-box tall"><canvas id="chSev"></canvas></div></div>
+  </section>
+  <section class="grid g2">
+    <div class="panel"><h2>Top source IPs</h2><div class="chart-box"><canvas id="chSrc"></canvas></div></div>
+    <div class="panel"><h2>Top targeted ports</h2><div class="chart-box"><canvas id="chPorts"></canvas></div></div>
+  </section>
+
+  <!-- live feed -->
+  <section class="panel">
+    <h2>Live alert feed</h2>
+    <div class="controls">
+      <div class="seg">
+        <button id="btnLive" class="live active" onclick="setMode('live')">● Live tail</button>
+        <button id="btnReplay" onclick="setMode('replay')">▶ Replay showcase</button>
+      </div>
+      <label class="muted" style="font-size:12px">speed
+        <input type="number" id="speedIn" value="8" min="1" max="60" step="1" style="width:70px"> /s
+      </label>
+      <input type="text" id="searchIn" placeholder="search ip, signature, port…">
+      <select id="catSel" onchange="loadFeed()"><option value="">all categories</option></select>
+      <select id="sevSel" onchange="loadFeed()">
+        <option value="">all severities</option>
+        <option value="critical">critical</option><option value="high">high</option>
+        <option value="medium">medium</option><option value="low">low</option><option value="info">info</option>
+      </select>
+      <button class="btn" onclick="loadFeed()">Refresh</button>
+      <button class="btn" onclick="toggleFeed(this)">Pause feed</button>
+    </div>
+    <div class="feed-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:150px">Time</th><th style="width:80px">Severity</th>
+          <th>Signature</th><th style="width:130px">Category</th>
+          <th style="width:290px">Flow</th><th style="width:70px">Proto</th>
+        </tr></thead>
+        <tbody id="feedBody">
+          <tr><td colspan="6" class="empty">loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="row-actions">
+      <span class="muted" id="feedInfo" style="font-size:12px"></span>
+      <span class="muted" id="replayInfo" style="font-size:12px"></span>
+    </div>
+  </section>
+
+  <!-- summary preview -->
+  <section class="grid g2" style="margin-top:14px">
+    <div class="panel">
+      <h2>Attack breakdown (summary log)</h2>
+      <div style="max-height:260px;overflow:auto">
+        <table>
+          <thead><tr><th>Signature</th><th>Category</th><th style="width:70px">Severity</th>
+            <th style="width:70px">Count</th><th style="width:60px">%</th></tr></thead>
+          <tbody id="sumBody"><tr><td colspan="5" class="empty">loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Network &amp; report</h2>
+      <div style="max-height:260px;overflow:auto">
+        <table>
+          <thead><tr><th>IP</th><th style="width:90px">As source</th>
+            <th style="width:90px">As target</th><th style="width:70px">Total</th></tr></thead>
+          <tbody id="ipBody"><tr><td colspan="4" class="empty">loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="row-actions">
+        <span class="muted" style="font-size:12px">Summary log: <span class="mono">data/summary.json</span></span>
+        <button class="btn primary" onclick="openReport()">📄 Build report from summary</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>Snort fast.log → JSON converter · live SSE feed · AI PDF reports (OpenRouter free models)</footer>
+</main>
+
+<!-- report modal -->
+<div class="overlay" id="reportOverlay" onclick="if(event.target===this)closeReport()">
+  <div class="modal">
+    <h3>Generate PDF attack report</h3>
+    <p class="hint">
+      Uses the <b>summary log</b> (counts, IPs, ports, attack details) to build the report.
+      With an OpenRouter API key a free model writes the analysis &amp; mitigations;
+      without a key an offline analysis with built-in mitigation library is used.
+    </p>
+    <div class="field">
+      <label>OpenRouter API key (optional — leave empty for offline report)</label>
+      <input type="password" id="apiKey" placeholder="sk-or-v1-…" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Free model</label>
+      <select id="modelSel"><option>loading models…</option></select>
+    </div>
+    <label style="font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="saveKey"> remember key in this browser (localStorage)
+    </label>
+    <div class="status" id="repStatus"></div>
+    <div class="reports" id="repList"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeReport()">Close</button>
+      <button class="btn primary" id="repBtn" onclick="generateReport()">Generate PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+let summary = null;
+let sessionEvents = 0;
+let feedPaused = false;
+let mode = 'live';
+let charts = {};
+/* live-update resilience: dedupe ids + poll fallback if SSE drops */
+const seenIds = new Set();
+let lastKnownTotal = 0;
+function markSeen(id){
+  if (id == null) return true;
+  if (seenIds.has(id)) return false;
+  seenIds.add(id);
+  if (seenIds.size > 20000) seenIds.clear();   // cap memory
+  return true;
+}
+const $ = id => document.getElementById(id);
+const COLORS = ['#38bdf8','#f87171','#fb923c','#facc15','#34d399','#a78bfa','#f472b6','#2dd4bf'];
+
+function downloadJSON(name){ window.location = '/api/download/' + name; }
+
+/* ---------------- log file selection ---------------- */
+function fmtSize(b){
+  if (b >= 1048576) return (b/1048576).toFixed(1)+' MB';
+  if (b >= 1024) return (b/1024).toFixed(1)+' KB';
+  return b+' B';
+}
+async function loadLogs(active){
+  try{
+    const j = await (await fetch('/api/logs')).json();
+    const cur = active || j.active;
+    $('logSel').innerHTML = j.files.map(f =>
+      `<option value="${esc(f.name)}" ${f.name===cur?'selected':''} ${f.readable===false?'disabled style="color:#788;text-decoration:line-through"':''}>${esc(f.name)} (${fmtSize(f.size)})${f.readable===false?' — no read access':''}</option>`
+    ).join('') || '<option>no log files found</option>';
+  }catch(e){ $('logSel').innerHTML = '<option>failed to load logs</option>'; }
+}
+async function switchLog(name){
+  if (!name) return;
+  $('logSel').disabled = true;
+  $('srcFile').textContent = name + ' (loading…)';
+  try{
+    const r = await fetch('/api/log', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({file:name})});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'switch failed');
+    // UI refresh arrives via SSE: logfile + summary + status events
+  }catch(err){
+    applyTailError(err.message);
+    alert('Could not switch log:\n' + err.message);
+    loadLogs();
+  }finally{
+    setTimeout(() => { $('logSel').disabled = false; }, 500);
+  }
+}
+function applyTailError(msg){
+  const el = $('tailErr');
+  if (msg){
+    el.style.display = '';
+    el.textContent = '⚠ ' + (msg.length > 70 ? msg.slice(0,70)+'…' : msg);
+    el.title = msg;
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+}
+
+/* ---------------- summary rendering ---------------- */
+function renderSummary(s){
+  summary = s;
+  lastKnownTotal = s.total_logs || 0;
+  $('cTotal').textContent = s.total_logs.toLocaleString();
+  $('cTotalD').textContent = `${s.attacks.distinct_categories} categories · ${s.parse_errors} bad lines`;
+  $('cSigs').textContent = s.attacks.distinct_signatures;
+  $('cSigsD').textContent = `highest: ${(s.attacks.highest_severity||'n/a').toUpperCase()}`;
+  $('cIps').textContent = s.ips.unique_total;
+  $('cIpsD').textContent = `${s.ips.unique_sources} sources · ${s.ips.unique_destinations} targets`;
+  $('cPorts').textContent = s.ports.unique_dst_ports;
+  $('cPortsD').textContent = `${s.protocols ? Object.keys(s.protocols).join('/') : '-'} protocols`;
+  const cat = s.attacks.by_category ? Object.entries(s.attacks.by_category)[0] : null;
+  $('cCat').textContent = cat ? cat[0] : '–';
+  $('cCatD').textContent = cat ? `${cat[1]} alerts` : '';
+  $('cPeak').textContent = s.timeline.peak_date || '–';
+  $('cPeakD').textContent = s.timeline.peak_date_count ? `${s.timeline.peak_date_count} alerts` : '';
+
+  // breakdown table
+  $('sumBody').innerHTML = (s.attack_details||[]).map(d => `
+    <tr><td>${esc(d.signature)} <span class="tag">SID ${d.sid}</span></td>
+    <td>${esc(d.category)}</td>
+    <td><span class="sev ${d.severity}">${d.severity}</span></td>
+    <td>${d.count}</td><td>${d.percentage}%</td></tr>`).join('')
+    || '<tr><td colspan="5" class="empty">no alerts</td></tr>';
+
+  // ip table
+  $('ipBody').innerHTML = (s.ips.per_ip||[]).map(r => `
+    <tr><td class="mono">${r.ip}</td><td>${r.as_source}</td><td>${r.as_target}</td><td>${r.total}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="empty">no ips</td></tr>';
+
+  // category filter options
+  const sel = $('catSel'), cur = sel.value;
+  const cats = Object.keys(s.attacks.by_category||{});
+  sel.innerHTML = '<option value="">all categories</option>' +
+    cats.map(c => `<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
+
+  renderCharts(s);
+}
+
+function esc(x){ return String(x??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------------- charts ---------------- */
+function baseOpts(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#9fb6d8', boxWidth:12, font:{size:11} } } },
+    scales:{
+      x:{ ticks:{color:'#7f95b5', font:{size:10}}, grid:{color:'rgba(40,58,92,.35)'} },
+      y:{ ticks:{color:'#7f95b5', font:{size:10}}, grid:{color:'rgba(40,58,92,.35)'}, beginAtZero:true }
+    }
+  };
+}
+function renderCharts(s){
+  if (typeof Chart === 'undefined') return;
+  const days = s.timeline.by_date||[];
+  upsert('chTimeline','line',{
+    labels: days.map(d=>d.date),
+    datasets:[{label:'alerts', data:days.map(d=>d.count), borderColor:'#38bdf8',
+      backgroundColor:'rgba(56,189,248,.18)', fill:true, tension:.3, pointRadius:3}]
+  }, { ...baseOpts(), plugins:{legend:{display:false}} });
+
+  const cats = Object.entries(s.attacks.by_category||{});
+  upsert('chCat','doughnut',{
+    labels:cats.map(c=>c[0]),
+    datasets:[{data:cats.map(c=>c[1]), backgroundColor:COLORS, borderColor:'#0e1626', borderWidth:2}]
+  }, { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',
+      labels:{color:'#9fb6d8', boxWidth:11, font:{size:10.5}}} } });
+
+  const sev = Object.entries(s.attacks.by_severity||{});
+  const sevColor = {critical:'#ef4444',high:'#f97316',medium:'#eab308',low:'#3b82f6',info:'#06b6d4'};
+  upsert('chSev','polarArea',{
+    labels:sev.map(x=>x[0]),
+    datasets:[{data:sev.map(x=>x[1]), backgroundColor:sev.map(x=>(sevColor[x[0]]||'#64748b')+'bb')}]
+  }, { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',
+      labels:{color:'#9fb6d8', boxWidth:11, font:{size:10.5}}}},
+      scales:{r:{ticks:{display:false}, grid:{color:'rgba(40,58,92,.5)'}}} });
+
+  const src = s.ips.top_sources||[];
+  upsert('chSrc','bar',{
+    labels:src.map(x=>x.ip),
+    datasets:[{label:'alerts sent', data:src.map(x=>x.count), backgroundColor:'#fb923c', borderRadius:5}]
+  }, baseOpts());
+
+  const ports = (s.ports.top_dst_ports||[]).slice(0,8);
+  upsert('chPorts','bar',{
+    labels:ports.map(p=>p.port+(p.service?' ('+p.service+')':'')),
+    datasets:[{label:'hits', data:ports.map(p=>p.count), backgroundColor:'#a78bfa', borderRadius:5}]
+  }, baseOpts());
+}
+function upsert(id,type,data,opts){
+  if (charts[id]){ charts[id].data = data; charts[id].options = opts; charts[id].update(); }
+  else charts[id] = new Chart($(id), {type, data, options:opts});
+}
+
+/* ---------------- feed ---------------- */
+function fmtTime(ts){
+  // "2026-07-23T15:06:28.484534" -> readable
+  if(!ts) return '';
+  return ts.replace('T',' ').slice(0,19);
+}
+function rowHTML(e){
+  const sport = e.src_port ? ':'+e.src_port : '';
+  const dport = e.dst_port ? ':'+e.dst_port : '';
+  return `<td class="mono">${fmtTime(e.timestamp)}</td>
+    <td><span class="sev ${e.severity}">${e.severity}</span></td>
+    <td>${esc(e.signature)} <span class="tag">SID ${e.sid}</span></td>
+    <td>${esc(e.category)}</td>
+    <td class="mono">${e.src_ip}${sport}<span class="arrow">→</span>${e.dst_ip}${dport}</td>
+    <td class="mono">${e.protocol}</td>`;
+}
+function passesFilter(e){
+  const cat = $('catSel').value, sev = $('sevSel').value;
+  if (cat && e.category !== cat) return false;
+  if (sev && e.severity !== sev) return false;
+  const q = $('searchIn').value.trim().toLowerCase();
+  if (q && !(e.raw.toLowerCase().includes(q) || e.src_ip.includes(q) || e.dst_ip.includes(q))) return false;
+  return true;
+}
+function prependEvent(e){
+  if (!markSeen(e.id)) return;               // dedupe SSE vs polling fallback
+  if (feedPaused || !passesFilter(e)) return;
+  const tb = $('feedBody');
+  if (tb.querySelector('.empty')) tb.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.className = 'fresh';
+  tr.innerHTML = rowHTML(e);
+  tb.prepend(tr);
+  while (tb.rows.length > 300) tb.deleteRow(-1);
+  sessionEvents++;
+  $('feedCount').textContent = sessionEvents + ' events this session';
+}
+async function loadFeed(){
+  const params = new URLSearchParams({limit:'200'});
+  const cat=$('catSel').value, sev=$('sevSel').value, q=$('searchIn').value.trim();
+  if(cat) params.set('category',cat);
+  if(sev) params.set('severity',sev);
+  if(q) params.set('search',q);
+  try{
+    const r = await fetch('/api/alerts?'+params);
+    const j = await r.json();
+    j.events.forEach(e => markSeen(e.id));
+    $('feedBody').innerHTML = j.events.map(e=>`<tr>${rowHTML(e)}</tr>`).join('')
+      || '<tr><td colspan="6" class="empty">no alerts match the filters</td></tr>';
+    $('feedInfo').textContent = `showing ${j.count} of ${j.total} matching alerts`;
+  }catch(err){
+    $('feedBody').innerHTML = `<tr><td colspan="6" class="empty">failed to load feed</td></tr>`;
+  }
+}
+function toggleFeed(btn){
+  feedPaused = !feedPaused;
+  btn.textContent = feedPaused ? 'Resume feed' : 'Pause feed';
+}
+
+/* ---------------- mode ---------------- */
+async function setMode(m){
+  const speed = parseFloat($('speedIn').value)||8;
+  try{
+    await fetch('/api/mode',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:m, speed})});
+  }catch(e){}
+}
+function applyMode(d){
+  mode = d.mode;
+  $('btnLive').classList.toggle('active', mode==='live');
+  $('btnReplay').classList.toggle('active', mode==='replay');
+  $('modeBadge').textContent = mode==='live' ? 'mode: live tail' : 'mode: replay showcase';
+  $('replayInfo').textContent = '';
+  if (mode==='replay'){
+    $('feedBody').innerHTML='';
+    sessionEvents = 0;
+    $('feedCount').textContent = '0 events this session';
+  } else {
+    loadFeed();
+  }
+}
+
+/* ---------------- SSE ---------------- */
+function connect(){
+  const es = new EventSource('/api/stream');
+  es.onopen = () => { $('sseDot').classList.add('on'); $('sseState').textContent='live stream connected'; };
+  es.onerror = () => { $('sseDot').classList.remove('on'); $('sseState').textContent='reconnecting…'; };
+
+  es.addEventListener('mode', ev => {
+    const d = JSON.parse(ev.data);
+    if (d.tail_error !== undefined) applyTailError(d.tail_error);
+    applyMode(d);
+  });
+  es.addEventListener('status', ev => {
+    const d = JSON.parse(ev.data);
+    applyTailError(d.tail_error || null);
+  });
+  es.addEventListener('alert', ev => prependEvent(JSON.parse(ev.data)));
+  es.addEventListener('summary', ev => renderSummary(JSON.parse(ev.data)));
+  es.addEventListener('logfile', ev => {
+    const d = JSON.parse(ev.data);
+    $('srcFile').textContent = d.file;
+    $('logSel').value = d.file;
+    $('feedBody').innerHTML = '';
+    seenIds.clear();
+    lastKnownTotal = 0;
+    sessionEvents = 0;
+    $('feedCount').textContent = '0 events this session';
+    $('replayInfo').textContent = '';
+    loadLogs(d.file);
+    loadFeed();
+  });
+  es.addEventListener('replay_done', ev => {
+    const d = JSON.parse(ev.data);
+    $('replayInfo').textContent = d.active ? `replay finished (${d.indexed}/${d.total})` : '';
+  });
+}
+
+/* ---------------- polling fallback (self-heal if SSE drops) ---------------- */
+async function healPoll(){
+  if (mode !== 'live') return;
+  let m;
+  try{
+    m = await (await fetch('/api/meta')).json();
+  }catch(e){ return; }
+  applyTailError(m.tail_error || null);
+  if (m.mode !== 'live' || m.source_file !== $('srcFile').textContent) return;
+  if (m.total > lastKnownTotal){
+    try{
+      const j = await (await fetch('/api/alerts?limit=100&order=desc')).json();
+      const fresh = j.events.filter(e => !seenIds.has(e.id));
+      fresh.reverse().forEach(e => prependEvent(e));  // marks ids seen internally
+    }catch(e){}
+    lastKnownTotal = Math.max(lastKnownTotal, m.total);
+  } else if (m.total < lastKnownTotal){
+    seenIds.clear();
+    lastKnownTotal = 0;
+    loadFeed();
+    lastKnownTotal = m.total;
+  }
+}
+
+/* ---------------- report modal ---------------- */
+async function openReport(){
+  $('reportOverlay').classList.add('show');
+  const saved = localStorage.getItem('or_api_key') || '';
+  if (saved && !$('apiKey').value) $('apiKey').value = saved;
+  try{
+    const m = await (await fetch('/api/models')).json();
+    $('modelSel').innerHTML = m.models.map(x=>`<option ${x===m.default?'selected':''}>${x}</option>`).join('');
+  }catch(e){ $('modelSel').innerHTML = '<option>google/gemma-4-31b-it:free</option>'; }
+  loadReports();
+}
+function closeReport(){ $('reportOverlay').classList.remove('show'); }
+async function loadReports(){
+  try{
+    const j = await (await fetch('/api/reports')).json();
+    $('repList').innerHTML = j.reports.map(r=>`
+      <div class="report-item">
+        <span>📄 <span class="mono">${esc(r.filename)}</span> · ${(r.size_bytes/1024).toFixed(1)} KB</span>
+        <a class="btn" href="${r.url}">Download</a>
+      </div>`).join('') || '<div class="muted" style="font-size:12px">no reports yet</div>';
+  }catch(e){}
+}
+function setStatus(msg, cls){
+  const el = $('repStatus');
+  el.className = 'status show ' + (cls||'');
+  el.innerHTML = msg;
+}
+async function generateReport(){
+  const key = $('apiKey').value.trim();
+  if ($('saveKey').checked && key) localStorage.setItem('or_api_key', key);
+  if (!$('saveKey').checked) localStorage.removeItem('or_api_key');
+  const model = $('modelSel').value;
+  const btn = $('repBtn');
+  btn.disabled = true;
+  setStatus('<span class="spin"></span>Building report… ' +
+    (key ? 'calling free model on OpenRouter (can take up to ~90s)…' : 'offline analysis (no API key)…'), 'ok');
+  try{
+    const r = await fetch('/api/report',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({api_key:key, model})});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error||'report failed');
+    const ai = j.meta && j.meta.used_ai
+      ? `AI analysis by <b>${esc(j.meta.model)}</b>` : `offline analysis — ${esc((j.meta||{}).fallback_reason||'')}`;
+    setStatus(`✅ Report ready: <b>${esc(j.filename)}</b> (${(j.size_bytes/1024).toFixed(1)} KB) · ${ai}<br>
+      <a href="${j.url}">⬇ Download PDF</a>`, 'ok');
+    loadReports();
+  }catch(err){
+    setStatus('❌ ' + esc(err.message), 'err');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+/* ---------------- boot ---------------- */
+(async function init(){
+  try{
+    const meta = await (await fetch('/api/meta')).json();
+    $('srcFile').textContent = meta.source_file;
+    applyTailError(meta.tail_error || null);
+    applyMode({mode:meta.mode});
+    loadLogs(meta.source_file);
+    lastKnownTotal = meta.total || 0;
+  }catch(e){ loadLogs(); }
+  try{
+    const s = await (await fetch('/api/summary')).json();
+    renderSummary(s);
+  }catch(e){}
+  loadFeed();
+  connect();
+  setInterval(healPoll, 5000);
+  let t;
+  $('searchIn').addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(loadFeed,300); });
+  $('catSel').addEventListener('change', loadFeed);
+  $('sevSel').addEventListener('change', loadFeed);
+})();
+</script>
+</body>
+</html>
